@@ -1,0 +1,85 @@
+import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+import PlansPopup from '../components/PlansPopup';
+import Progress from '../components/Progress';
+import { ContinueLearning } from '../components/ContinueLearning';
+import { RecommendedSection } from '../components/RecommendedSection';
+import { UpcomingEvents } from '../components/UpcomingEvents';
+import { API_URL } from "../shared/api";
+import { Calendar } from '../components/Calendar';
+import { useAuth } from '../context/AuthContext';
+import MentorSlotAdd from '../components/mentor/SlotAdd';
+import MentorSlotList from '../components/mentor/SlotList';
+import HeroSubjects from "../components/HeroSubjects";
+
+const getAuthToken = () => `Bearer ${localStorage.getItem('token')}`;
+
+export const Home = () => {
+    const location = useLocation();
+    const [showPopup, setShowPopup] = useState(false);
+    const { currentUser } = useAuth();
+
+    const checkSubscriptionStatus = async () => {
+        try {
+            const response = await fetch(`${API_URL}/payment/subscription-status`, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': getAuthToken(),
+                },
+            });
+
+            const subscriptionData = await response.json();
+
+            if (response.ok) {
+                if (!subscriptionData.isActive || subscriptionData.currentPlan === 'Free') {
+                    setShowPopup(true);
+                }
+            } else {
+                console.error('Failed to fetch subscription status:', subscriptionData.error);
+            }
+        } catch (error) {
+            console.error('Error fetching subscription status:', error);
+        }
+    };
+
+    useEffect(() => {
+        if (location.state?.fromLogin) {
+            checkSubscriptionStatus();
+        }
+    }, [location.state]);
+
+    if (currentUser.type === 'student') {
+        return (
+            <div className="p-4 md:p-6 md:px-28">
+                {showPopup && (
+                    <PlansPopup onClose={() => setShowPopup(false)} />
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+                    <Progress />
+                    <Calendar />
+                    <ContinueLearning />
+                </div>
+                <div className="mt-4 md:mt-6">
+                    <HeroSubjects />
+                </div>
+                <div className="mt-4 md:mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+                    <RecommendedSection />
+                    <UpcomingEvents />
+                </div>
+            </div>
+        );
+    } else if (currentUser.type === 'mentor') {
+        return (
+            <div className="p-4 md:p-6 md:px-28">
+                <div className="p-6 bg-gray-50 min-h-screen">
+                    <h1 className="text-3xl font-bold mb-4">Mentor Dashboard</h1>
+                    <MentorSlotAdd />
+                    <br />
+                    <MentorSlotList />
+                </div>
+            </div>
+        );
+    }
+
+    return null;
+};
